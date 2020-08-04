@@ -13,7 +13,10 @@
     "strict": true,
     "forceConsistentCasingInFileNames": true,
     "module": "esnext",
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "outDir": "./lib",
+    "declaration": true,
+    "sourceMap": true
   },
   "include": [
     "src"
