@@ -24,5 +24,8 @@
   },
   "peerDependencies": {
     "@codemirror/next": "^0.9.0"
+  },
+  "dependencies": {
+    "fuzzy": "^0.1.3"
   }
 }
