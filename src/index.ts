@@ -22,7 +22,7 @@ import {
 } from "@codemirror/next/state"
 import { showTooltip, Tooltip, tooltips, TooltipView } from "@codemirror/next/tooltip"
 import { baseTheme } from "./theme"
-import fuzzy from 'fuzzy';
+import * as fuzzy from 'fuzzy';
 
 /// Denotes how to
 /// [filter](#autocomplete.autocomplete^config.filterType)
@@ -176,12 +176,12 @@ class CombinedResult {
     return new CombinedResult(sources, results,
       options.sort(({completion: {label: a, score: a1}}, {completion: {label: b, score: a2}}) => {
         if (a1 < a2) {
-          return -1
-        }
-        if (a1 > a2) {
           return 1
         }
-        return a < b ? -1 : a == b ? 0 : 1
+        if (a1 > a2) {
+          return -1
+        }
+        return a < b ? -1 : a === b ? 0 : 1
       }))
   }
 
