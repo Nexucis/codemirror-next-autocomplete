@@ -1,24 +1,21 @@
 {
+  "compileOnSave": false,
   "compilerOptions": {
-    "target": "es5",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
     "allowJs": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true,
-    "strict": true,
-    "forceConsistentCasingInFileNames": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "outDir": "./lib",
+    "target": "es2015",
     "declaration": true,
-    "sourceMap": true
+    "outDir": "./lib",
+    "module": "commonjs",
+    "sourceMap": true,
+    "strict": true,
+    "allowSyntheticDefaultImports": true
   },
   "include": [
-    "src"
+    "src",
+    "@types/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/__tests__/*"
   ]
 }
