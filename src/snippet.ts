@@ -1,18 +1,30 @@
-import {Decoration, DecorationSet, themeClass, WidgetType, EditorView, keymap} from "@codemirror/next/view"
-import {StateField, StateEffect, ChangeDesc, EditorState, EditorSelection,
-        Transaction, TransactionSpec, Text, StateCommand, precedence} from "@codemirror/next/state"
-import {baseTheme} from "./theme"
-import {AutocompleteContext, Autocompleter} from "./index"
+import { Decoration, DecorationSet, EditorView, keymap, themeClass, WidgetType } from "@codemirror/next/view"
+import {
+  ChangeDesc,
+  EditorSelection,
+  EditorState,
+  precedence,
+  StateCommand,
+  StateEffect,
+  StateField,
+  Text,
+  Transaction,
+  TransactionSpec
+} from "@codemirror/next/state"
+import { baseTheme } from "./theme"
+import { AutocompleteContext, Autocompleter } from "./index"
 
 class FieldPos {
   constructor(readonly field: number,
               readonly line: number,
               readonly from: number,
-              readonly to: number) {}
+              readonly to: number) {
+  }
 }
 
 class FieldRange {
-  constructor(readonly field: number, readonly from: number, readonly to: number) {}
+  constructor(readonly field: number, readonly from: number, readonly to: number) {
+  }
 
   map(changes: ChangeDesc) {
     return new FieldRange(this.field, changes.mapPos(this.from, -1), changes.mapPos(this.to, 1))
@@ -21,14 +33,15 @@ class FieldRange {
 
 class Snippet {
   constructor(readonly lines: readonly string[],
-              readonly fieldPositions: readonly FieldPos[]) {}
+              readonly fieldPositions: readonly FieldPos[]) {
+  }
 
   instantiate(state: EditorState, pos: number) {
-    let text = [], lineStart = [pos]
-    let lineObj = state.doc.lineAt(pos), baseIndent = /^\s*/.exec(lineObj.slice(0, Math.min(100, lineObj.length)))![0]
+    let text = [], lineStart = [ pos ]
+    let lineObj = state.doc.lineAt(pos), baseIndent = /^\s*/.exec(lineObj.slice(0, Math.min(100, lineObj.length)))![ 0 ]
     for (let line of this.lines) {
       if (text.length) {
-        let indent = baseIndent, tabs = /^\t*/.exec(line)![0].length
+        let indent = baseIndent, tabs = /^\t*/.exec(line)![ 0 ].length
         for (let i = 0; i < tabs; i++) indent += state.facet(EditorState.indentUnit)
         lineStart.push(pos + indent.length - tabs)
         line = indent + line.slice(tabs)
@@ -37,27 +50,27 @@ class Snippet {
       pos += line.length + 1
     }
     let ranges = this.fieldPositions.map(
-      pos => new FieldRange(pos.field, lineStart[pos.line] + pos.from, lineStart[pos.line] + pos.to))
+      pos => new FieldRange(pos.field, lineStart[ pos.line ] + pos.from, lineStart[ pos.line ] + pos.to))
     return {text, ranges}
   }
 
   static parse(template: string) {
-    let fields: {seq: number | null, name: string | null}[] = []
+    let fields: { seq: number | null, name: string | null }[] = []
     let lines = [], positions = [], m
     for (let line of template.split(/\r\n?|\n/)) {
       while (m = /[#$]\{(?:(\d+)(?::([^}]*))?|([^}]*))\}/.exec(line)) {
-        let seq = m[1] ? +m[1] : null, name = m[2] || m[3], found = -1
+        let seq = m[ 1 ] ? +m[ 1 ] : null, name = m[ 2 ] || m[ 3 ], found = -1
         for (let i = 0; i < fields.length; i++) {
-          if (name ? fields[i].name == name : seq != null && fields[i].seq == seq) found = i
+          if (name ? fields[ i ].name == name : seq != null && fields[ i ].seq == seq) found = i
         }
         if (found < 0) {
           let i = 0
-          while (i < fields.length && (seq == null || (fields[i].seq != null && fields[i].seq! < seq))) i++
+          while (i < fields.length && (seq == null || (fields[ i ].seq != null && fields[ i ].seq! < seq))) i++
           fields.splice(i, 0, {seq, name: name || null})
           found = i
         }
         positions.push(new FieldPos(found, lines.length, m.index, m.index + name.length))
-        line = line.slice(0, m.index) + name + line.slice(m.index + m[0].length)
+        line = line.slice(0, m.index) + name + line.slice(m.index + m[ 0 ].length)
       }
       lines.push(line)
     }
@@ -95,13 +108,17 @@ class ActiveSnippet {
 }
 
 const setActive = StateEffect.define<ActiveSnippet | null>({
-  map(value, changes) { return value && value.map(changes) }
+  map(value, changes) {
+    return value && value.map(changes)
+  }
 })
 
 const moveToField = StateEffect.define<number>()
 
 const snippetState = StateField.define<ActiveSnippet | null>({
-  create() { return null },
+  create() {
+    return null
+  },
 
   update(value, tr) {
     for (let effect of tr.effects) {
@@ -113,7 +130,7 @@ const snippetState = StateField.define<ActiveSnippet | null>({
     return value
   },
 
-  provide: [EditorView.decorations.from(val => val ? val.deco : Decoration.none)]
+  provide: [ EditorView.decorations.from(val => val ? val.deco : Decoration.none) ]
 })
 
 function fieldSelection(ranges: readonly FieldRange[], field: number) {
@@ -145,14 +162,14 @@ function fieldSelection(ranges: readonly FieldRange[], field: number) {
 /// a custom order.
 export function snippet(template: string) {
   let snippet = Snippet.parse(template)
-  return (editor: {state: EditorState, dispatch: (tr: Transaction) => void}, range: {from: number, to?: number}) => {
+  return (editor: { state: EditorState, dispatch: (tr: Transaction) => void }, range: { from: number, to?: number }) => {
     let {text, ranges} = snippet.instantiate(editor.state, range.from)
     let spec: TransactionSpec = {changes: {from: range.from, to: range.to, insert: Text.of(text)}}
     if (ranges.length) spec.selection = fieldSelection(ranges, 0)
     if (ranges.length > 1) {
       spec.effects = setActive.of(new ActiveSnippet(ranges, 0))
       if (editor.state.field(snippetState, false) === undefined)
-        spec.reconfigure = {append: [snippetState, snippetKeymap, baseTheme]}
+        spec.reconfigure = {append: [ snippetState, snippetKeymap, baseTheme ]}
     }
     editor.dispatch(editor.state.update(spec))
   }
@@ -198,15 +215,19 @@ export type SnippetSpec = {
 
 /// Create a completion source from an array of snippet specs.
 export function completeSnippets(snippets: readonly SnippetSpec[]): Autocompleter {
-  let parsed = snippets.map(s => ({label: s.name || s.keyword, apply: snippet(s.snippet)}))
+  let parsed = snippets.map(s => ({label: s.name || s.keyword, apply: snippet(s.snippet), score: 0}))
   return (context: AutocompleteContext) => {
     let token = context.tokenBefore()
     let isAlpha = /[\w\u00a1-\uffff]/.test(token.text)
     if (!isAlpha && !context.explicit) return null
     let options = []
     for (let i = 0; i < snippets.length; i++) {
-      let candidate = snippets[i]
-      if (!token.text || context.filter(candidate.keyword, token.text)) options.push(parsed[i])
+      let candidate = snippets[ i ]
+      let score: number | null = 0
+      if (!token.text || (score = context.filter(candidate.keyword, token.text))) {
+        parsed[ i ].score = score
+        options.push(parsed[ i ])
+      }
     }
     return {from: token.from, to: context.pos, options, filterDownOn: /^[\w\u00a1-\uffff]+$/}
   }
