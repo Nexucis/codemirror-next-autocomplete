@@ -389,12 +389,12 @@ function createListBox(result: CombinedResult, id: string) {
   ul.setAttribute("role", "listbox")
   ul.setAttribute("aria-expanded", "true")
   for (let i = 0; i < result.options.length; i++) {
-    let {completion} = result.options[ i ]
+    let {completion} = result.options[i]
     const li = ul.appendChild(document.createElement("li"))
     li.id = id + "-" + i
-    let icon = li.appendChild(document.createElement("div"))
-    icon.className = themeClass("completionIcon" + (completion.type ? "." + completion.type : ""))
-    li.appendChild(document.createTextNode(completion.label))
+
+    const className = themeClass("completionIcon" + (completion.type ? "." + completion.type : ""))
+    li.innerHTML = '<div class="'+className+'"></div>' + completion.label
     li.setAttribute("role", "option")
   }
   return ul
