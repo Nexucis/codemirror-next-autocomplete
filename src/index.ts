@@ -24,18 +24,21 @@ import { showTooltip, Tooltip, tooltips, TooltipView } from "@codemirror/next/to
 import { baseTheme } from "./theme"
 import * as fuzzy from 'fuzzy';
 
-/// Denotes how to
-/// [filter](#autocomplete.autocomplete^config.filterType)
-/// completions.
-export enum FilterType {
-  /// Only show completions that start with the currently typed text.
-  Start,
-  /// Show completions that have the typed text anywhere in their
-  /// content.
-  Include,
-  /// Show completions that include each character of the typed text,
-  /// in order (so `gBCR` could complete to `getBoundingClientRect`).
-  Fuzzy
+function escapeHTML(text: string): string {
+  return text.replace(/[&<>"']/g, (m: string) => {
+    switch (m) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      default:
+        return '&#039;';
+    }
+  });
 }
 
 export class AutocompleteContext {
@@ -50,29 +53,30 @@ export class AutocompleteContext {
     /// only return completions when either there is part of a
     /// completable entity at the cursor, or explicit is true.
     readonly explicit: boolean,
-    /// The configured completion filter. Ignoring this won't break
-    /// anything, but supporting it is encouraged.
-    readonly filterType: FilterType,
     /// Indicates whether completion has been configured to be
     /// case-sensitive. Again, this should be taken as a hint, not a
     /// requirement.
-    readonly caseSensitive: boolean
+    readonly caseSensitive: boolean,
+    /// String to insert in the list view before matching characters.
+    readonly matchPre?: string,
+    /// String to insert in the list view after matching characters.
+    readonly matchPost?: string
   ) {
   }
 
-  /// Filter a given completion string against the partial input in
-  /// `text`. Will use `this.filterType`, returns `true` when the
-  /// completion should be shown.
-  filter(completion: string, text: string, caseSensitive = this.caseSensitive) {
-    if (!caseSensitive && completion == completion.toLowerCase())
+  /// Fuzzy-filters a given Completion against the partial input in `text`.
+  /// Returns an updated Completion with new score and rendered text,
+  /// or null when there is no match at all.
+  filter(completion: Completion, text: string, caseSensitive = this.caseSensitive): Completion|null {
+    if (!caseSensitive && completion.original == completion.original.toLowerCase())
       text = text.toLowerCase()
-    if (this.filterType == FilterType.Start)
-      return completion.slice(0, text.length) == text ? 0 : null;
-    else if (this.filterType == FilterType.Include)
-      return completion.indexOf(text) > -1 ? 0 : null
-    // Fuzzy
-    const result = fuzzy.filter(text, [ completion ])
-    return result && result.length > 0 ? result[ 0 ].score : null
+
+    const match = fuzzy.match(text, escapeHTML(completion.original), {pre: this.matchPre, post: this.matchPost});
+    if (match === null) {
+      return null;
+    }
+
+    return {...completion, label: match.rendered, score: match.score}
   }
 
   /// Get the extent, content, and (if there is a token) type of the
@@ -112,12 +116,15 @@ function canRefilter(result: CompletionResult, state: EditorState, changes?: Cha
   return pos == to || result.filterDownOn.test(state.sliceDoc(to, pos))
 }
 
-function refilter(result: CompletionResult, context: AutocompleteContext) {
+function refilter(result: CompletionResult, context: AutocompleteContext): CompletionResult {
   let text = context.state.sliceDoc(result.from, context.pos)
   return {
     from: result.from,
     to: context.pos,
-    options: result.options.filter(opt => context.filter(opt.label, text)),
+    options: result.options.reduce((opts: Completion[], opt) => {
+      const filteredOpt = context.filter(opt, text);
+      return filteredOpt === null ? opts : [...opts, filteredOpt]
+    }, []),
     filterDownOn: result.filterDownOn
   }
 }
@@ -126,6 +133,8 @@ function refilter(result: CompletionResult, context: AutocompleteContext) {
 export interface Completion {
   /// The label to show in the completion picker.
   label: string,
+  /// The original string to match against.
+  original: string,
   /// How to apply the completion. When this holds a string, the
   /// completion range is replaced by that string. When it is a
   /// function, that function is called to perform the completion.
@@ -154,11 +163,13 @@ interface AutocompleteConfig {
   activateOnTyping?: boolean
   /// Override the completion source used.
   override?: Autocompleter | null
-  /// Configures how to filter completions.
-  filterType?: FilterType
   /// Configures whether completion is case-sensitive (defaults to
   /// false).
   caseSensitive?: boolean
+  /// String to insert in the list view before matching characters.
+  readonly matchPre?: string,
+  /// String to insert in the list view after matching characters.
+  readonly matchPost?: string
 }
 
 class CombinedResult {
@@ -201,7 +212,7 @@ class CombinedResult {
 
   refilterAll(state: EditorState) {
     let config = state.facet(autocompleteConfig), pos = state.selection.primary.head
-    let context = new AutocompleteContext(state, pos, false, config.filterType, config.caseSensitive)
+    let context = new AutocompleteContext(state, pos, false, config.caseSensitive, config.matchPre, config.matchPost)
     return CombinedResult.create(this.sources, this.results.map(r => r && refilter(r, context)))
   }
 }
@@ -209,7 +220,7 @@ class CombinedResult {
 function retrieveCompletions(state: EditorState, pending: PendingCompletion): Promise<CombinedResult> {
   let config = state.facet(autocompleteConfig), pos = state.selection.primary.head
   let sources = config.override ? [ config.override ] : state.languageDataAt<Autocompleter>("autocomplete", pos)
-  let context = new AutocompleteContext(state, pos, pending.explicit, config.filterType, config.caseSensitive)
+  let context = new AutocompleteContext(state, pos, pending.explicit, config.caseSensitive, config.matchPre, config.matchPost)
   return Promise.all(sources.map(source => {
     let prevIndex = pending.prev ? pending.prev.result.sources.indexOf(source) : -1
     let prev = prevIndex < 0 ? null : pending.prev!.result.results[ prevIndex ]
@@ -222,8 +233,9 @@ const autocompleteConfig = Facet.define<AutocompleteConfig, Required<Autocomplet
     return combineConfig(configs, {
       activateOnTyping: true,
       override: null,
-      filterType: FilterType.Start,
-      caseSensitive: false
+      caseSensitive: false,
+      matchPre: '<b>',
+      matchPost: '</b>',
     })
   }
 })
@@ -494,7 +506,10 @@ export function completeFromList(list: readonly (string | Completion)[]): Autoco
     let token = context.tokenBefore()
     return {
       from: token.from, to: token.to,
-      options: options.filter(o => context.filter(o.label, token.text)),
+      options: options.reduce((opts: Completion[], opt) => {
+        const filteredOpt = context.filter(opt, token.text)
+        return filteredOpt === null ? opts : [...opts, filteredOpt]
+      }, []),
       filterDownOn
     }
   }
