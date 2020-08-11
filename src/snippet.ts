@@ -12,7 +12,7 @@ import {
   TransactionSpec
 } from "@codemirror/next/state"
 import { baseTheme } from "./theme"
-import { AutocompleteContext, Autocompleter } from "./index"
+import { AutocompleteContext, Autocompleter, Completion } from "./index"
 
 class FieldPos {
   constructor(readonly field: number,
@@ -215,18 +215,20 @@ export type SnippetSpec = {
 
 /// Create a completion source from an array of snippet specs.
 export function completeSnippets(snippets: readonly SnippetSpec[]): Autocompleter {
-  let parsed = snippets.map(s => ({label: s.name || s.keyword, apply: snippet(s.snippet), score: 0}))
+  let parsed = snippets.map(s => ({label: s.name || s.keyword, original: s.name || s.keyword, apply: snippet(s.snippet), score: 0}))
   return (context: AutocompleteContext) => {
     let token = context.tokenBefore()
     let isAlpha = /[\w\u00a1-\uffff]/.test(token.text)
     if (!isAlpha && !context.explicit) return null
-    let options = []
-    for (let i = 0; i < snippets.length; i++) {
-      let candidate = snippets[ i ]
+    let options: Completion[] = []
+    for (let opt of parsed) {
+      const filteredOpt = context.filter(opt, token.text)
+
       let score: number | null = 0
-      if (!token.text || (score = context.filter(candidate.keyword, token.text))) {
-        parsed[ i ].score = score
-        options.push(parsed[ i ])
+      if (filteredOpt !== null) {
+        options.push(filteredOpt)
+      } else if (!token.text) {
+        options.push(opt)
       }
     }
     return {from: token.from, to: context.pos, options, filterDownOn: /^[\w\u00a1-\uffff]+$/}
