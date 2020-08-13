@@ -22,24 +22,7 @@ import {
 } from "@codemirror/next/state"
 import { showTooltip, Tooltip, tooltips, TooltipView } from "@codemirror/next/tooltip"
 import { baseTheme } from "./theme"
-import * as fuzzy from 'fuzzy';
-
-function escapeHTML(text: string): string {
-  return text.replace(/[&<>"']/g, (m: string) => {
-    switch (m) {
-      case '&':
-        return '&amp;';
-      case '<':
-        return '&lt;';
-      case '>':
-        return '&gt;';
-      case '"':
-        return '&quot;';
-      default:
-        return '&#039;';
-    }
-  });
-}
+import { Fuzzy } from '@nexucis/fuzzy/index';
 
 export class AutocompleteContext {
   /// @internal
@@ -68,10 +51,8 @@ export class AutocompleteContext {
   /// Returns an updated Completion with new score and rendered text,
   /// or null when there is no match at all.
   filter(completion: Completion, text: string, caseSensitive = this.caseSensitive): Completion|null {
-    if (!caseSensitive && completion.original == completion.original.toLowerCase())
-      text = text.toLowerCase()
-
-    const match = fuzzy.match(text, escapeHTML(completion.original), {pre: this.matchPre, post: this.matchPost});
+    const fuz = new Fuzzy({caseSensitive: caseSensitive, escapeHTML: true, pre: this.matchPre, post: this.matchPost})
+    const match = fuz.match(text, completion.original);
     if (match === null) {
       return null;
     }
