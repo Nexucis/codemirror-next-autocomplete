@@ -25,6 +25,7 @@ import { baseTheme } from "./theme"
 import { Fuzzy } from '@nexucis/fuzzy/index';
 
 export class AutocompleteContext {
+  private readonly fuz: Fuzzy;
   /// @internal
   constructor(
     /// The editor state that the completion happens in.
@@ -41,18 +42,18 @@ export class AutocompleteContext {
     /// requirement.
     readonly caseSensitive: boolean,
     /// String to insert in the list view before matching characters.
-    readonly matchPre?: string,
+    matchPre?: string,
     /// String to insert in the list view after matching characters.
-    readonly matchPost?: string
+    matchPost?: string,
   ) {
+    this.fuz = new Fuzzy({escapeHTML:true, pre: matchPre, post: matchPost})
   }
 
   /// Fuzzy-filters a given Completion against the partial input in `text`.
   /// Returns an updated Completion with new score and rendered text,
   /// or null when there is no match at all.
   filter(completion: Completion, text: string, caseSensitive = this.caseSensitive): Completion|null {
-    const fuz = new Fuzzy({caseSensitive: caseSensitive, escapeHTML: true, pre: this.matchPre, post: this.matchPost})
-    const match = fuz.match(text, completion.original);
+    const match = this.fuz.match(text, completion.original, { caseSensitive: caseSensitive });
     if (match === null) {
       return null;
     }
