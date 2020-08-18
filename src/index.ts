@@ -53,6 +53,9 @@ export class AutocompleteContext {
   /// Returns an updated Completion with new score and rendered text,
   /// or null when there is no match at all.
   filter(completion: Completion, text: string, caseSensitive = this.caseSensitive): Completion|null {
+    if(text.length === 0) {
+      return completion
+    }
     const match = this.fuz.match(text, completion.original, { caseSensitive: caseSensitive });
     if (match === null) {
       return null;
