@@ -26,6 +26,6 @@
     "@codemirror/next": "^0.10.0"
   },
   "dependencies": {
-    "@nexucis/fuzzy": "^0.2.0"
+    "@nexucis/fuzzy": "^0.2.1"
   }
 }
