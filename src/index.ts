@@ -24,6 +24,12 @@ import { showTooltip, Tooltip, tooltips, TooltipView } from "@codemirror/next/to
 import { baseTheme } from "./theme"
 import { Fuzzy } from '@nexucis/fuzzy/index';
 
+// The maximum number of options to display in the autocomplete dropdown. This is important
+// for dramatically reducing display time for large lists.
+//
+// TODO: Figure out how to make this configurable.
+const maxDisplayedOptions = 100;
+
 export class AutocompleteContext {
   private readonly fuz: Fuzzy;
   /// @internal
@@ -108,7 +114,10 @@ function refilter(result: CompletionResult, context: AutocompleteContext): Compl
     to: context.pos,
     options: result.options.reduce((opts: Completion[], opt) => {
       const filteredOpt = context.filter(opt, text);
-      return filteredOpt === null ? opts : [...opts, filteredOpt]
+      if (filteredOpt !== null) {
+        opts.push(filteredOpt)
+      }
+      return opts
     }, []),
     filterDownOn: result.filterDownOn
   }
@@ -250,7 +259,7 @@ function moveCompletion(dir: string, by?: string) {
     let step = 1, tooltip
     if (by == "page" && (tooltip = view.dom.querySelector(".cm-tooltip-autocomplete") as HTMLElement))
       step = Math.max(2, Math.floor(tooltip.offsetHeight / (tooltip.firstChild as HTMLElement).offsetHeight))
-    let selected = active.selected + step * (dir == "up" ? -1 : 1), {length} = active.result.options
+    let selected = active.selected + step * (dir == "up" ? -1 : 1), {length} = active.result.options.slice(0, maxDisplayedOptions)
     if (selected < 0) selected = by == "page" ? 0 : length - 1
     else if (selected >= length) selected = by == "page" ? length - 1 : 0
     view.dispatch({effects: selectCompletion.of(selected)})
@@ -386,7 +395,7 @@ function createListBox(result: CombinedResult, id: string) {
   ul.id = id
   ul.setAttribute("role", "listbox")
   ul.setAttribute("aria-expanded", "true")
-  for (let i = 0; i < result.options.length; i++) {
+  for (let i = 0; i < result.options.slice(0, maxDisplayedOptions).length; i++) {
     let {completion} = result.options[i]
     const li = ul.appendChild(document.createElement("li"))
     li.id = id + "-" + i
