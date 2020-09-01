@@ -22,7 +22,7 @@ import {
 } from "@codemirror/next/state"
 import { showTooltip, Tooltip, tooltips, TooltipView } from "@codemirror/next/tooltip"
 import { baseTheme } from "./theme"
-import { Fuzzy } from '@nexucis/fuzzy/index';
+import fuzzy from '@nexucis/fuzzy';
 
 // The maximum number of options to display in the autocomplete dropdown. This is important
 // for dramatically reducing display time for large lists.
@@ -31,7 +31,7 @@ import { Fuzzy } from '@nexucis/fuzzy/index';
 const maxDisplayedOptions = 100;
 
 export class AutocompleteContext {
-  private readonly fuz: Fuzzy;
+  private readonly fuz: fuzzy.Fuzzy;
   /// @internal
   constructor(
     /// The editor state that the completion happens in.
@@ -52,7 +52,7 @@ export class AutocompleteContext {
     /// String to insert in the list view after matching characters.
     matchPost?: string,
   ) {
-    this.fuz = new Fuzzy({escapeHTML:true, pre: matchPre, post: matchPost})
+    this.fuz = new fuzzy.Fuzzy({escapeHTML:true, pre: matchPre, post: matchPost})
   }
 
   /// Fuzzy-filters a given Completion against the partial input in `text`.
